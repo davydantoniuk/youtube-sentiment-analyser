@@ -16,7 +16,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load Model 1: Spam Classifier (Optimized with Joblib)
 model1 = joblib.load("model1/model1.pkl")
-vectorizer1 = joblib.load("model1/vectorizer1.pkl")
+vectorizer1 = joblib.load("model1/vectorizer_model1.pkl")
 
 
 def classify_spam(text):
