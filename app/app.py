@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from comments.parse_comments import process_video_comments, init_db
 from models.classify_comments import classify_comment
-from visualization.visualization_functions import create_sentiment_barplot
+from visualization.visualization_functions import create_sentiment_barplot, create_word_frequency_barplots, create_word_cloud, create_phrase_frequency_barplots
 import sqlite3
 import os
 import re
@@ -40,16 +40,32 @@ def index():
         pos_count = 0
         neu_count = 0
         neg_count = 0
+        spam_count = 0
+        pos_comments = []
+        neu_comments = []
+        neg_comments = []
         for c in all_comments:
             sentiment = classify_comment(c[0])
             if sentiment == 0:
                 neg_count += 1
+                neg_comments.append(c[0])
             elif sentiment == 1:
                 neu_count += 1
+                neu_comments.append(c[0])
+            elif sentiment == "Spam":
+                spam_count += 1
             else:
                 pos_count += 1
+                pos_comments.append(c[0])
 
         plot_data = create_sentiment_barplot(pos_count, neu_count, neg_count)
+        word_freq_plot = create_word_frequency_barplots(
+            pos_comments, neu_comments, neg_comments)
+        phrase_freq_plot = create_phrase_frequency_barplots(
+            pos_comments, neu_comments, neg_comments)
+
+        all_comments_text = [c[0] for c in all_comments]
+        word_cloud_data = create_word_cloud(all_comments_text)
 
         # Fetch only the last 10 comments for display
         cursor.execute(
@@ -68,7 +84,11 @@ def index():
             positive_count=pos_count,
             neutral_count=neu_count,
             negative_count=neg_count,
-            plot_data=plot_data
+            spam_count=spam_count,
+            plot_data=plot_data,
+            word_freq_plot=word_freq_plot,
+            word_cloud_data=word_cloud_data,
+            phrase_freq_plot=phrase_freq_plot
         )
 
     return render_template("index.html")
