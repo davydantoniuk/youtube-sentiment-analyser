@@ -39,10 +39,23 @@
             <p>Positive Comments: {{ positive_count }}</p>
             <p>Neutral Comments: {{ neutral_count }}</p>
             <p>Negative Comments: {{ negative_count }}</p>
+            <p>Spam Comments: {{ spam_count }}</p>
         </div>
         <div class="mt-4">
             <h5>Sentiment Bar Plot</h5>
             <img src="{{ plot_data }}" alt="Sentiment Analysis Bar Plot" />
+        </div>
+        <div class="mt-4">
+            <h5>Most Common Words per Sentiment</h5>
+            <img src="{{ word_freq_plot }}" alt="Word Frequency Bar Plots" />
+        </div>
+        <div class="mt-4">
+            <h5>Most Common Phrases per Sentiment</h5>
+            <img src="{{ phrase_freq_plot }}" alt="Phrase Frequency Bar Plots" />
+        </div>
+        <div class="mt-4">
+            <h5>Word Cloud of All Comments</h5>
+            <img src="{{ word_cloud_data }}" alt="Word Cloud" />
         </div>
         {% endif %}
     </div>
