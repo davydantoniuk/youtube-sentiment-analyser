@@ -25,7 +25,7 @@
 
         {% if comments %}
         <div class="mt-4">
-            <h3>Recent Comments</h3>
+            <h3>Recent 10 Comments</h3>
             <ul class="list-group">
                 {% for comment in comments %}
                 <li class="list-group-item">
@@ -33,6 +33,16 @@
                 </li>
                 {% endfor %}
             </ul>
+        </div>
+        <div class="mt-4">
+            <h5>Sentiment Counts:</h5>
+            <p>Positive Comments: {{ positive_count }}</p>
+            <p>Neutral Comments: {{ neutral_count }}</p>
+            <p>Negative Comments: {{ negative_count }}</p>
+        </div>
+        <div class="mt-4">
+            <h5>Sentiment Bar Plot</h5>
+            <img src="{{ plot_data }}" alt="Sentiment Analysis Bar Plot" />
         </div>
         {% endif %}
     </div>

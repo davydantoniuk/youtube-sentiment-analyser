@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from comments.parse_comments import process_video_comments, init_db
 from models.classify_comments import classify_comment
+from visualization.visualization_functions import create_sentiment_barplot
 import sqlite3
 import os
 import re
@@ -31,11 +32,44 @@ def index():
         num_new_comments = process_video_comments(video_id, DB_FILE)
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
+
+        # Analyze all comments for overall sentiment counts
         cursor.execute(
-            "SELECT comment_text, published_at FROM comments WHERE video_id=? ORDER BY published_at DESC LIMIT 10;", (video_id,))
-        comments = cursor.fetchall()
+            "SELECT comment_text FROM comments WHERE video_id=?", (video_id,))
+        all_comments = cursor.fetchall()
+        pos_count = 0
+        neu_count = 0
+        neg_count = 0
+        for c in all_comments:
+            sentiment = classify_comment(c[0])
+            if sentiment == 0:
+                neg_count += 1
+            elif sentiment == 1:
+                neu_count += 1
+            else:
+                pos_count += 1
+
+        plot_data = create_sentiment_barplot(pos_count, neu_count, neg_count)
+
+        # Fetch only the last 10 comments for display
+        cursor.execute(
+            "SELECT comment_text, published_at FROM comments WHERE video_id=? ORDER BY published_at DESC LIMIT 10;",
+            (video_id,)
+        )
+        recent_comments = cursor.fetchall()
+
         conn.close()
-        return render_template("index.html", message=f"Added {num_new_comments} new comments to database!", video_id=video_id, comments=comments)
+
+        return render_template(
+            "index.html",
+            message=f"Added {num_new_comments} new comments to database!",
+            video_id=video_id,
+            comments=recent_comments,
+            positive_count=pos_count,
+            neutral_count=neu_count,
+            negative_count=neg_count,
+            plot_data=plot_data
+        )
 
     return render_template("index.html")
 
