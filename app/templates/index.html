@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Comment Scraper</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h2 class="text-center">YouTube Comment Scraper</h2>
+        <form method="POST" class="mt-4">
+            <div class="form-group">
+                <label for="video_link">Enter YouTube Video URL:</label>
+                <input type="text" id="video_link" name="video_link" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Fetch Comments</button>
+        </form>
+
+        {% if message %}
+        <div class="alert alert-info mt-3">{{ message }}</div>
+        {% endif %}
+
+        {% if comments %}
+        <div class="mt-4">
+            <h3>Recent Comments</h3>
+            <ul class="list-group">
+                {% for comment in comments %}
+                <li class="list-group-item">
+                    <strong>{{ comment[0] }}</strong> <em>{{ comment[1] }}</em>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
