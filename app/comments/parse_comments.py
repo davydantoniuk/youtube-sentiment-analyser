@@ -19,7 +19,7 @@ API_KEY = config["youtube_api_key"]
 
 # === Database Configuration ===
 DB_FILE = os.path.abspath(os.path.join(
-    os.path.dirname(__file__), "../comments.db"))
+    os.path.dirname(__file__), "comments.db"))
 
 
 def init_db():
@@ -45,7 +45,7 @@ YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
 
 
-def fetch_comments(video_link, max_comments=1000):
+def fetch_comments(video_link, max_comments=200):
     video_id = video_link.split("v=")[-1]
     youtube = build(YOUTUBE_API_SERVICE_NAME,
                     YOUTUBE_API_VERSION, developerKey=API_KEY)
@@ -75,34 +75,38 @@ def fetch_comments(video_link, max_comments=1000):
 
     return comments[:max_comments]
 
-# === Save Comments to Database ===
 
-
-def save_comments_to_db(comments):
-    conn = sqlite3.connect(DB_FILE)
+# === Save Only New Comments to Database ===
+def save_comments_to_db(comments, db_file):
+    conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
+    new_comments_count = 0
     for comment in comments:
+        # Check if comment already exists
         cursor.execute("""
-            INSERT INTO comments (video_id, video_link, comment_text, published_at)
-            SELECT ?, ?, ?, ?
-            WHERE NOT EXISTS (
-                SELECT 1 FROM comments WHERE video_id = ? AND comment_text = ?
-            )
-        """, (
-            comment["video_id"],
-            comment["video_link"],
-            comment["comment_text"],
-            comment["published_at"],
-            comment["video_id"],
-            comment["comment_text"]
-        ))
+            SELECT 1 FROM comments WHERE video_id = ? AND comment_text = ?
+        """, (comment["video_id"], comment["comment_text"]))
+
+        if cursor.fetchone() is None:  # If comment does not exist, insert it
+            cursor.execute("""
+                INSERT INTO comments (video_id, video_link, comment_text, published_at)
+                VALUES (?, ?, ?, ?)
+            """, (
+                comment["video_id"],
+                comment["video_link"],
+                comment["comment_text"],
+                comment["published_at"]
+            ))
+            new_comments_count += 1
 
     conn.commit()
     conn.close()
+    return new_comments_count
 
 
-def process_video_comments(video_link):
+# === Process Video Comments and Return Count of New Comments ===
+def process_video_comments(video_link, db_file):
     comments = fetch_comments(video_link)
-    save_comments_to_db(comments)
-    return len(comments)
+    new_comments = save_comments_to_db(comments, db_file)
+    return new_comments  # Return only the count of newly added comments
