@@ -2,6 +2,8 @@ import sqlite3
 from googleapiclient.discovery import build
 import yaml
 import os
+import html
+import re
 
 # === Load API key from config.yml ===
 
@@ -62,10 +64,13 @@ def fetch_comments(video_link, max_comments=200):
 
         for item in response["items"]:
             comment = item["snippet"]["topLevelComment"]["snippet"]
+            clean_text = html.unescape(comment["textDisplay"])
+            clean_text = re.sub(r'<br\s*/?>', '\n', clean_text)
+
             comments.append({
                 "video_id": video_id,
                 "video_link": video_link,
-                "comment_text": comment["textDisplay"],
+                "comment_text": clean_text,
                 "published_at": comment["publishedAt"]
             })
 
