@@ -15,3 +15,8 @@
 [Amazon Reviews Multi](https://www.kaggle.com/datasets/mexwell/amazon-reviews-multi?select=train.csv)
 
 [multilingual-sentiments](https://huggingface.co/datasets/tyqiangz/multilingual-sentiments)
+
+[Allegro Rewiews](https://github.com/allegro/klejbenchmark-allegroreviews)
+
+[Cell phone reviews (Russian language)](https://www.kaggle.com/datasets/theovall/phonereviews)
+
