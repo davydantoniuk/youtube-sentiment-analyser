@@ -3,19 +3,13 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Comment Scraper</title>
-
-    <!-- Bootstrap 5 for Styling -->
+    <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Custom Dark Theme -->
     <style>
         body {
             background-color: #121212;
-            /* Dark background */
             color: #e0e0e0;
-            /* Light text */
             font-family: 'Arial', sans-serif;
         }
 
@@ -27,7 +21,6 @@
         h3,
         h5 {
             color: #66ffcc;
-            /* Light cyan color */
             text-align: center;
         }
 
@@ -74,14 +67,6 @@
             color: #e0e0e0;
         }
 
-        .footer {
-            margin-top: 30px;
-            text-align: center;
-            padding: 10px;
-            background-color: #181818;
-            color: #ccc;
-        }
-
         img {
             max-width: 100%;
             height: auto;
@@ -91,31 +76,33 @@
 </head>
 
 <body>
-
     <div class="container">
-        <!-- Page Header -->
         <h2>🎥 YouTube Comment Scraper</h2>
 
         <!-- Progress Bar -->
-        <div id="progress-container" class="mt-3" style="display:none;">
-            <label for="progress-bar">Fetching comments...</label>
+        <div id="progress-section" class="mt-3" style="display:none;">
+            <label id="progress-label">Fetching comments...</label>
             <div class="progress" style="height: 25px;">
-                <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
-                    role="progressbar" style="width:0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                    role="progressbar" style="width:0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                </div>
             </div>
         </div>
 
-        <!-- Input Form -->
-        <form method="POST" class="mt-4" onsubmit="showProgress()">
-            <div class="form-group">
-                <label for="video_link">Enter YouTube Video URL:</label>
+        <!-- Submit Form -->
+        <form id="video-form" method="POST">
+            <div class="mb-3 mt-4">
+                <label for="video_link" class="form-label">Enter YouTube Video URL:</label>
                 <input type="text" id="video_link" name="video_link" class="form-control"
                     placeholder="Paste video link here..." required>
             </div>
-            <button type="submit" class="btn btn-primary btn-block mt-2">🔍 Fetch Comments</button>
+            <button type="submit" class="btn btn-primary btn-block">🔍 Fetch Comments</button>
         </form>
 
-        <!-- Message Display -->
+        <!-- 
+    If we have results, let's display them. 
+    These variables come from progress_status["results"] in app.py
+  -->
         {% if message %}
         <div class="alert alert-info mt-3 text-center">{{ message }}</div>
         {% endif %}
@@ -125,38 +112,41 @@
         {% endif %}
 
         {% if comments %}
-        <!-- Total Comments -->
         <div class="card mt-4">
             <h3 style="text-align: left;">📊 Total Comments: {{ total_comments }}</h3>
         </div>
-        <!-- Sentiment Counts -->
+
         <div class="card mt-4">
             <h3 style="text-align: center;">📈 Sentiment Counts</h3>
             <div class="row mt-4">
                 <div class="col-md-6 chart-container">
-                    <p style="font-size: 1.5em; font-weight: bold;">✅ Positive: <strong>{{ positive_count }}</strong>
+                    <p style="font-size: 1.5em; font-weight: bold;">
+                        ✅ Positive: <strong>{{ positive_count }}</strong>
                     </p>
                 </div>
                 <div class="col-md-6 chart-container">
-                    <p style="font-size: 1.5em; font-weight: bold;">➖ Neutral: <strong>{{ neutral_count }}</strong></p>
-                </div>
-                <div class="col-md-6 chart-container">
-                    <p style="font-size: 1.5em; font-weight: bold;">❌ Negative: <strong>{{ negative_count }}</strong>
+                    <p style="font-size: 1.5em; font-weight: bold;">
+                        ➖ Neutral: <strong>{{ neutral_count }}</strong>
                     </p>
                 </div>
                 <div class="col-md-6 chart-container">
-                    <p style="font-size: 1.5em; font-weight: bold;">🚫 Spam: <strong>{{ spam_count }}</strong></p>
+                    <p style="font-size: 1.5em; font-weight: bold;">
+                        ❌ Negative: <strong>{{ negative_count }}</strong>
+                    </p>
+                </div>
+                <div class="col-md-6 chart-container">
+                    <p style="font-size: 1.5em; font-weight: bold;">
+                        🚫 Spam: <strong>{{ spam_count }}</strong>
+                    </p>
                 </div>
             </div>
         </div>
 
-        <!-- Charts Section -->
         <div class="row mt-4">
             <div class="col-md-6 chart-container">
                 <h3>📊 Sentiment Analysis</h3>
                 <img src="{{ plot_data }}" alt="Sentiment Analysis Bar Plot">
             </div>
-
             <div class="col-md-6 chart-container">
                 <h3>🌍 Word Cloud</h3>
                 <img src="{{ word_cloud_data }}" alt="Word Cloud">
@@ -170,7 +160,6 @@
                 <h3>🔠 Most Common Words</h3>
                 <img src="{{ word_freq_plot }}" alt="Word Frequency Bar Plot">
             </div>
-
             <div class="col-md-6 chart-container">
                 <h3>📜 Most Common Phrases</h3>
                 <img src="{{ phrase_freq_plot }}" alt="Phrase Frequency Bar Plot">
@@ -179,7 +168,6 @@
 
         <br>
 
-        <!-- Recent Comments (Moved to Bottom) -->
         <div class="card mt-4">
             <h3>📝 Recent 10 Comments</h3>
             <ul class="list-group">
@@ -191,30 +179,65 @@
             </ul>
         </div>
         {% endif %}
+
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        function showProgress() {
-            const container = document.getElementById('progress-container');
-            const bar = document.getElementById('progress-bar');
-            container.style.display = 'block';
-            let width = 0;
-            const interval = setInterval(() => {
-                if (width >= 95) {
-                    clearInterval(interval);
-                } else {
-                    width += 2;
-                    bar.style.width = width + '%';
-                    bar.setAttribute('aria-valuenow', width);
-                }
-            }, 200);
+        // On form submission, prevent the normal submit, do AJAX
+        $('#video-form').on('submit', function (e) {
+            e.preventDefault();
+
+            // Grab the video link
+            const videoLink = $('#video_link').val();
+
+            // Reset and show the progress bar
+            $('#progress-section').show();
+            $('#progress-bar').css('width', '0%').attr('aria-valuenow', 0);
+            $('#progress-label').text('Starting...');
+
+            // Start the process via AJAX
+            $.post('/start_process', { video_link: videoLink })
+                .done(function (response) {
+                    // Once started, begin polling progress
+                    pollProgress();
+                })
+                .fail(function (error) {
+                    console.error(error);
+                    alert('Error starting process: ' + error.responseJSON.error);
+                });
+        });
+
+        function pollProgress() {
+            const intervalId = setInterval(function () {
+                $.get('/progress')
+                    .done(function (data) {
+                        // data contains: { state, current, total, message }
+                        $('#progress-label').text(data.message);
+                        if (data.total > 0) {
+                            const percent = Math.round((data.current / data.total) * 100);
+                            $('#progress-bar').css('width', percent + '%').attr('aria-valuenow', percent);
+                        }
+
+                        // If done or error, stop polling
+                        if (data.state === 'done') {
+                            clearInterval(intervalId);
+                            // Reload the page to display final results
+                            location.reload();
+                        } else if (data.state === 'error') {
+                            clearInterval(intervalId);
+                            alert('An error occurred: ' + data.message);
+                        }
+                    })
+                    .fail(function (error) {
+                        console.error(error);
+                        clearInterval(intervalId);
+                    });
+            }, 1000); // poll every 1 second
         }
     </script>
-
-    <!-- Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
+    </script>
 </body>
 
 </html>
