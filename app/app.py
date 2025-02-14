@@ -30,13 +30,25 @@ def index():
             return render_template("index.html", message="Invalid YouTube URL. Please enter a valid link.")
 
         num_new_comments = process_video_comments(video_id, DB_FILE)
+
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
 
-        # Analyze all comments for overall sentiment counts
+        # ✅ Check if the video has existing comments in the database
+        cursor.execute(
+            "SELECT COUNT(*) FROM comments WHERE video_id=?", (video_id,))
+        total_comments = cursor.fetchone()[0]
+
+        # 🛑 Stop if there are no comments at all in the database
+        if num_new_comments == 0 and total_comments == 0:
+            conn.close()
+            return render_template("index.html", message="No comments available for this video.")
+
+        # 🟢 Proceed with analysis (if there are any comments, even if no new ones)
         cursor.execute(
             "SELECT comment_text FROM comments WHERE video_id=?", (video_id,))
         all_comments = cursor.fetchall()
+
         pos_count = 0
         neu_count = 0
         neg_count = 0
@@ -44,6 +56,7 @@ def index():
         pos_comments = []
         neu_comments = []
         neg_comments = []
+
         for c in all_comments:
             sentiment = classify_comment(c[0])
             if sentiment == 0:
@@ -64,6 +77,10 @@ def index():
         phrase_freq_plot = create_phrase_frequency_barplots(
             pos_comments, neu_comments, neg_comments)
 
+        warning_message_plot = None
+        if word_freq_plot is None or phrase_freq_plot is None:
+            warning_message_plot = "Warning: Small number of comments detected. Word & phrase frequency plots were not generated."
+
         all_comments_text = [c[0] for c in all_comments]
         word_cloud_data = create_word_cloud(all_comments_text)
 
@@ -78,7 +95,8 @@ def index():
 
         return render_template(
             "index.html",
-            message=f"Added {num_new_comments} new comments to database!",
+            message=f"Added {num_new_comments} new comments to database!" if num_new_comments > 0 else "Comments already exist in the database. Analysis performed.",
+            warning_plot=warning_message_plot,
             video_id=video_id,
             comments=recent_comments,
             positive_count=pos_count,
