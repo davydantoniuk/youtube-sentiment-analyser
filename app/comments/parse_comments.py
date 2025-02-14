@@ -47,7 +47,7 @@ YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
 
 
-def fetch_comments(video_link, max_comments=200):
+def fetch_comments(video_link, max_comments=1000):
     video_id = video_link.split("v=")[-1]
     youtube = build(YOUTUBE_API_SERVICE_NAME,
                     YOUTUBE_API_VERSION, developerKey=API_KEY)
