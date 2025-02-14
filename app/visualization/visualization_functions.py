@@ -1,5 +1,6 @@
 import nltk
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.exceptions import NotFittedError
 from nltk.corpus import stopwords
 import base64
 import re
@@ -32,56 +33,43 @@ MULTI_STOPWORDS = list(MULTI_STOPWORDS)
 # 2) CORE TF-IDF + SHORT-WORD PENALTY FUNCTION
 
 def compute_tfidf_frequencies(
-    documents,
-    ngram_range=(1, 1),
-    min_word_length=8,
-    stopwords_list=None,
-    top_n=None
+    documents, ngram_range=(1, 1), min_word_length=6, stopwords_list=None, top_n=None
 ):
     """
-    Given a list of documents (strings), this function:
-      - Uses TF-IDF to compute term frequencies
-      - Optionally removes custom stopwords (multilingual or otherwise)
-      - Penalizes words shorter than `min_word_length` by multiplying
-        their TF-IDF score by (len(word) / min_word_length).
-      - Returns a dict of {term -> adjusted TF-IDF score}, optionally limited to top_n.
-
-    :param documents: list of text strings
-    :param ngram_range: (lower, upper) for n-grams, e.g. (1,1) for single words, (2,3) for bigrams+trigrams, etc.
-    :param min_word_length: words shorter than this get penalized
-    :param stopwords_list: pass a list of stopwords if desired
-    :param top_n: if not None, returns only the top_n by score
-    :return: dict {term: float_score}
+    Computes TF-IDF frequencies with error handling.
+    If the input is too small or contains only stopwords, returns an empty dictionary.
     """
     if stopwords_list is None:
         stopwords_list = []
 
-    vectorizer = TfidfVectorizer(
-        stop_words=stopwords_list,
-        ngram_range=ngram_range,
-        token_pattern=r"\b\w+\b",
-    )
+    try:
+        vectorizer = TfidfVectorizer(
+            stop_words=stopwords_list, ngram_range=ngram_range, token_pattern=r"\b\w+\b"
+        )
+        X = vectorizer.fit_transform(documents)
 
-    X = vectorizer.fit_transform(documents)
-    feature_names = vectorizer.get_feature_names_out()
-    scores = X.sum(axis=0).A1
+        if X.shape[1] == 0:
+            raise ValueError("empty vocabulary")
 
-    freq_dict = {}
-    for word, score in zip(feature_names, scores):
-        if len(word) < min_word_length:
-            ratio = len(word) / float(min_word_length)
-            # Apply a stronger penalty for shorter words:
-            adjusted_score = score * (ratio ** 2)
+        feature_names = vectorizer.get_feature_names_out()
+        scores = X.sum(axis=0).A1
+
+        freq_dict = {}
+        for word, score in zip(feature_names, scores):
+            adjusted_score = score * \
+                (len(word) / float(min_word_length)
+                 ) if len(word) < min_word_length else score
             freq_dict[word] = adjusted_score
-        else:
-            freq_dict[word] = score
 
-    if top_n is not None:
-        sorted_items = sorted(
-            freq_dict.items(), key=lambda x: x[1], reverse=True)
-        freq_dict = dict(sorted_items[:top_n])
+        if top_n:
+            freq_dict = dict(
+                sorted(freq_dict.items(), key=lambda x: x[1], reverse=True)[:top_n])
 
-    return freq_dict
+        return freq_dict
+
+    except (ValueError, NotFittedError):
+        # If the vocabulary is empty, return an empty dictionary
+        return {}
 
 
 # 3) SENTIMENT BAR PLOT (unchanged)
@@ -110,7 +98,7 @@ def create_sentiment_barplot(positive, neutral, negative):
 
 # 4) WORD CLOUD USING TF-IDF (with short-word penalty)
 
-def create_word_cloud(comments, top_n=200, min_word_length=8):
+def create_word_cloud(comments, top_n=200, min_word_length=6):
     """
     Creates a word cloud from TF-IDF frequencies (across all `comments`).
     We apply short-word penalty and (optionally) multilingual stopwords.
@@ -124,7 +112,7 @@ def create_word_cloud(comments, top_n=200, min_word_length=8):
     # 1. Compute TF-IDF frequencies
     freq_dict = compute_tfidf_frequencies(
         documents=comments,
-        ngram_range=(1, 1),
+        ngram_range=(1, 1),          # single words
         min_word_length=min_word_length,
         stopwords_list=MULTI_STOPWORDS,
         top_n=top_n
@@ -150,193 +138,117 @@ def create_word_cloud(comments, top_n=200, min_word_length=8):
     return f"data:image/png;base64,{encoded}"
 
 
-# 5) WORD FREQUENCY BAR PLOTS (using TF-IDF, short-word penalty)
+# 5) WORD FREQUENCY BAR PLOTS (Fixed Size)
 
-def create_word_frequency_barplots(positive_comments, neutral_comments, negative_comments, top_n=10):
-    """
-    Creates bar plots showing the most important words in positive, neutral, and negative comments,
-    based on TF-IDF scoring plus a penalty for words under 6 letters.
-    Returns the plot as a base64-encoded PNG string.
-    """
 
-    # Extract top TF-IDF frequencies for each sentiment
+def create_word_frequency_barplots(positive_comments, neutral_comments, negative_comments, top_n=5):
+    """
+    Creates word frequency plots ensuring bars are properly spaced and all subplots have equal sizes.
+    """
     pos_freqs = compute_tfidf_frequencies(
-        documents=positive_comments,
-        ngram_range=(1, 1),
-        min_word_length=8,
-        stopwords_list=MULTI_STOPWORDS,
-        top_n=top_n
-    )
+        positive_comments, ngram_range=(1, 1), top_n=top_n)
     neg_freqs = compute_tfidf_frequencies(
-        documents=negative_comments,
-        ngram_range=(1, 1),
-        min_word_length=8,
-        stopwords_list=MULTI_STOPWORDS,
-        top_n=top_n
-    )
+        negative_comments, ngram_range=(1, 1), top_n=top_n)
     neu_freqs = compute_tfidf_frequencies(
-        documents=neutral_comments,
-        ngram_range=(1, 1),
-        min_word_length=8,
-        stopwords_list=MULTI_STOPWORDS,
-        top_n=top_n
-    )
+        neutral_comments, ngram_range=(1, 1), top_n=top_n)
 
-    # Convert dictionaries to sorted lists [(word, freq), ...]
+    if not pos_freqs and not neg_freqs and not neu_freqs:
+        return None  # Skip plot if all are empty
+
     def sort_dict(d):
         return sorted(d.items(), key=lambda x: x[1], reverse=True)
 
-    pos_common = sort_dict(pos_freqs)
-    neg_common = sort_dict(neg_freqs)
-    neu_common = sort_dict(neu_freqs)
+    pos_common, neg_common, neu_common = sort_dict(
+        pos_freqs), sort_dict(neg_freqs), sort_dict(neu_freqs)
 
-    # --- Create figure and GridSpec layout
-    fig = plt.figure(figsize=(12, 8))
-    gs = fig.add_gridspec(2, 2, height_ratios=[1, 0.5])
-
-    # Subplots
-    ax_pos = fig.add_subplot(gs[0, 0])  # Positive
-    ax_neg = fig.add_subplot(gs[0, 1])  # Negative
-    ax_neu = fig.add_subplot(gs[1, :])  # Neutral
-
+    # Fixed size (same for both plots)
+    fig, axes = plt.subplots(3, 1, figsize=(10, 10))
     color_map = {'Positive': 'green', 'Negative': 'red', 'Neutral': 'blue'}
 
-    # Plot Positive
-    if pos_common:
-        words, scores = zip(*pos_common)
-        ax_pos.barh(words, scores, color=color_map['Positive'])
-        ax_pos.set_title("Positive Words (TF-IDF)")
-        ax_pos.set_yticks(range(len(words)))
-        ax_pos.set_yticklabels(words, rotation=0, ha='right')
-    else:
-        ax_pos.axis('off')
+    def plot_freq(ax, common_words, title, color):
+        if common_words:
+            words, scores = zip(*common_words)
+            y_pos = range(len(words))
+            ax.barh(y_pos, scores, color=color)
+            ax.set_title(title, fontsize=12)
+            ax.set_yticks(y_pos)
+            ax.set_yticklabels(words, fontsize=10)
+            ax.set_ylim(-0.5, top_n - 0.5)  # Ensure same height across plots
+            ax.invert_yaxis()  # Highest values on top
+        else:
+            ax.axis('off')
 
-    # Plot Negative
-    if neg_common:
-        words, scores = zip(*neg_common)
-        ax_neg.barh(words, scores, color=color_map['Negative'])
-        ax_neg.set_title("Negative Words (TF-IDF)")
-        ax_neg.set_yticks(range(len(words)))
-        ax_neg.set_yticklabels(words, rotation=0, ha='right')
-    else:
-        ax_neg.axis('off')
+    plot_freq(axes[0], pos_common, "Positive Words (TF-IDF)",
+              color_map['Positive'])
+    plot_freq(axes[1], neg_common, "Negative Words (TF-IDF)",
+              color_map['Negative'])
+    plot_freq(axes[2], neu_common, "Neutral Words (TF-IDF)",
+              color_map['Neutral'])
 
-    # Plot Neutral
-    if neu_common:
-        words, scores = zip(*neu_common)
-        ax_neu.barh(words, scores, color=color_map['Neutral'])
-        ax_neu.set_title("Neutral Words (TF-IDF)")
-        ax_neu.set_yticks(range(len(words)))
-        ax_neu.set_yticklabels(words, rotation=0, ha='right')
-    else:
-        ax_neu.axis('off')
+    plt.subplots_adjust(hspace=0.5)  # Equal spacing between subplots
+    plt.tight_layout()  # Ensures a cleaner look
 
-    plt.tight_layout()
-
-    # Encode figure as base64
     buf = BytesIO()
-    plt.savefig(buf, format='png')
+    plt.savefig(buf, format='png', bbox_inches='tight')  # Ensure tight layout
     plt.close()
     buf.seek(0)
-    encoded = base64.b64encode(buf.getvalue()).decode('utf-8')
-    return f"data:image/png;base64,{encoded}"
+
+    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
 
 
-# 6) PHRASE FREQUENCY BAR PLOTS (TF-IDF on ngrams)
+# 6) PHRASE FREQUENCY BAR PLOTS (Fixed Size)
 
-def create_phrase_frequency_barplots(
-    positive_comments,
-    neutral_comments,
-    negative_comments,
-    top_n=10,
-    ngram_range=(2, 3)
-):
+
+def create_phrase_frequency_barplots(positive_comments, neutral_comments, negative_comments, top_n=5, ngram_range=(2, 3)):
     """
-    Creates bar plots of the most important phrases (bigrams/trigrams/etc.)
-    in positive, neutral, and negative comments using TF-IDF, with optional short-word penalty.
-    Returns the plot as a base64-encoded PNG string.
+    Creates phrase frequency plots ensuring bars are properly spaced and all subplots have equal sizes.
     """
-
     pos_phrases = compute_tfidf_frequencies(
-        documents=positive_comments,
-        ngram_range=ngram_range,
-        min_word_length=8,
-        stopwords_list=MULTI_STOPWORDS,
-        top_n=top_n
-    )
+        positive_comments, ngram_range=ngram_range, top_n=top_n)
     neg_phrases = compute_tfidf_frequencies(
-        documents=negative_comments,
-        ngram_range=ngram_range,
-        min_word_length=8,
-        stopwords_list=MULTI_STOPWORDS,
-        top_n=top_n
-    )
+        negative_comments, ngram_range=ngram_range, top_n=top_n)
     neu_phrases = compute_tfidf_frequencies(
-        documents=neutral_comments,
-        ngram_range=ngram_range,
-        min_word_length=8,
-        stopwords_list=MULTI_STOPWORDS,
-        top_n=top_n
-    )
+        neutral_comments, ngram_range=ngram_range, top_n=top_n)
+
+    if not pos_phrases and not neg_phrases and not neu_phrases:
+        return None  # Skip plot if all are empty
 
     def sort_dict(d):
         return sorted(d.items(), key=lambda x: x[1], reverse=True)
 
-    pos_common = sort_dict(pos_phrases)
-    neg_common = sort_dict(neg_phrases)
-    neu_common = sort_dict(neu_phrases)
+    pos_common, neg_common, neu_common = sort_dict(
+        pos_phrases), sort_dict(neg_phrases), sort_dict(neu_phrases)
 
-    # Layout
-    fig = plt.figure(figsize=(12, 8))
-    gs = fig.add_gridspec(2, 2, height_ratios=[1, 0.5])
+    # Fixed size (same as word plot)
+    fig, axes = plt.subplots(3, 1, figsize=(10, 10))
+    color_map = {'Positive': 'green', 'Negative': 'red', 'Neutral': 'blue'}
 
-    ax_pos = fig.add_subplot(gs[0, 0])
-    ax_neg = fig.add_subplot(gs[0, 1])
-    ax_neu = fig.add_subplot(gs[1, :])
+    def plot_freq(ax, common_phrases, title, color):
+        if common_phrases:
+            phrases, scores = zip(*common_phrases)
+            y_pos = range(len(phrases))
+            ax.barh(y_pos, scores, color=color)
+            ax.set_title(title, fontsize=12)
+            ax.set_yticks(y_pos)
+            ax.set_yticklabels(phrases, fontsize=10)
+            ax.set_ylim(-0.5, top_n - 0.5)  # Ensure same height across plots
+            ax.invert_yaxis()  # Highest values on top
+        else:
+            ax.axis('off')
 
-    color_map = {
-        'Positive': 'green',
-        'Negative': 'red',
-        'Neutral': 'blue'
-    }
+    plot_freq(axes[0], pos_common, "Positive Phrases (TF-IDF)",
+              color_map['Positive'])
+    plot_freq(axes[1], neg_common, "Negative Phrases (TF-IDF)",
+              color_map['Negative'])
+    plot_freq(axes[2], neu_common, "Neutral Phrases (TF-IDF)",
+              color_map['Neutral'])
 
-    # Positive
-    if pos_common:
-        phrases, scores = zip(*pos_common)
-        ax_pos.barh(phrases, scores, color=color_map['Positive'])
-        ax_pos.set_title("Positive Phrases (TF-IDF)")
-        ax_pos.set_yticks(range(len(phrases)))
-        ax_pos.set_yticklabels(phrases, rotation=0, ha='right')
-    else:
-        ax_pos.axis('off')
+    plt.subplots_adjust(hspace=0.5)  # Equal spacing between subplots
+    plt.tight_layout()  # Ensures a cleaner look
 
-    # Negative
-    if neg_common:
-        phrases, scores = zip(*neg_common)
-        ax_neg.barh(phrases, scores, color=color_map['Negative'])
-        ax_neg.set_title("Negative Phrases (TF-IDF)")
-        ax_neg.set_yticks(range(len(phrases)))
-        ax_neg.set_yticklabels(phrases, rotation=0, ha='right')
-    else:
-        ax_neg.axis('off')
-
-    # Neutral
-    if neu_common:
-        phrases, scores = zip(*neu_common)
-        ax_neu.barh(phrases, scores, color=color_map['Neutral'])
-        ax_neu.set_title("Neutral Phrases (TF-IDF)")
-        ax_neu.set_yticks(range(len(phrases)))
-        ax_neu.set_yticklabels(phrases, rotation=0, ha='right')
-    else:
-        ax_neu.axis('off')
-
-    plt.tight_layout()
-
-    # Convert to base64
     buf = BytesIO()
-    plt.savefig(buf, format='png')
+    plt.savefig(buf, format='png', bbox_inches='tight')  # Ensure tight layout
     plt.close()
     buf.seek(0)
-    encoded = base64.b64encode(buf.getvalue()).decode('utf-8')
 
-    return f"data:image/png;base64,{encoded}"
+    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
