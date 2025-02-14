@@ -96,6 +96,7 @@ def index():
         return render_template(
             "index.html",
             message=f"Added {num_new_comments} new comments to database!" if num_new_comments > 0 else "Comments already exist in the database. Analysis performed.",
+            total_comments=total_comments,
             warning_plot=warning_message_plot,
             video_id=video_id,
             comments=recent_comments,
