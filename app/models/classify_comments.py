@@ -129,15 +129,15 @@ def predict_multilingual_sentiment(text):
 
 def classify_comment(text):
     if classify_spam(text) == 1:
-        return "Spam"
+        return "Spam", "unknown"
 
     try:
         detected_lang = detect(text)
     except Exception:
-        return predict_multilingual_sentiment(text)
+        detected_lang = "unknown"
 
     if detected_lang != "en":
-        return predict_multilingual_sentiment(text)
+        return predict_multilingual_sentiment(text), detected_lang
 
     # Run hate speech, sarcasm, and sentiment in parallel
     with ThreadPoolExecutor() as executor:
@@ -149,7 +149,7 @@ def classify_comment(text):
         sarcasm_probs = sarcasm_future.result()
         sentiment_probs = sentiment_future.result()
 
-    # Apply weighting adjustments
+    # Weight adjustments
     w_pos, w_neu, w_neg = 1, 1, 1
     if hate_speech_probs[0] > 0.7:
         w_neg += 1.2
@@ -162,12 +162,11 @@ def classify_comment(text):
         w_neu *= 1.2
         w_neg *= 1.1
 
-    # Compute final scores
+    # Final sentiment classification
     sentiment_scores = [
         sentiment_probs[0] * w_neg,
         sentiment_probs[1] * w_neu,
         sentiment_probs[2] * w_pos
     ]
 
-    # Final decision
-    return [0, 1, 2][sentiment_scores.index(max(sentiment_scores))]
+    return [0, 1, 2][sentiment_scores.index(max(sentiment_scores))], "en"
