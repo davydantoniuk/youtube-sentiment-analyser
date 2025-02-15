@@ -95,19 +95,14 @@ def get_progress():
 
 def background_task(video_id):
     """
-    The heavy-lifting function that:
-      1) Fetches & saves comments,
-      2) Classifies them,
-      3) Generates plots,
-      4) Stores final results in progress_status['results'].
-    We'll periodically update progress_status so the frontend can see progress.
+    Fetch, classify, and analyze comments.
     """
     try:
-        # 1) Fetch comments from YouTube
+        # Fetch comments
         progress_status["message"] = "Fetching comments..."
         num_new_comments = process_video_comments(video_id, DB_FILE)
 
-        # Check total comments after fetching
+        # Get total comments
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         cursor.execute(
@@ -115,7 +110,6 @@ def background_task(video_id):
         total_comments = cursor.fetchone()[0]
 
         if total_comments == 0:
-            # no comments at all
             conn.close()
             progress_status["state"] = "done"
             progress_status["results"] = {
@@ -124,92 +118,77 @@ def background_task(video_id):
             }
             return
 
-        # 2) Classify comments
+        # Classify comments
         progress_status["message"] = "Classifying comments..."
         cursor.execute(
             "SELECT comment_text FROM comments WHERE video_id=?", (video_id,))
         all_comments = cursor.fetchall()
         conn.close()
 
-        # Prepare counters
+        # Sentiment counters
         pos_count = 0
         neu_count = 0
         neg_count = 0
         spam_count = 0
+        english_count = 0
+        non_english_count = 0
         pos_comments = []
         neu_comments = []
         neg_comments = []
 
-        # We know how many comments we have to classify
         progress_status["total"] = len(all_comments)
         progress_status["current"] = 0
 
         for c in all_comments:
-            # For each comment, classify it
-            sentiment = classify_comment(c[0])
+            comment_text = c[0]
+            sentiment, language = classify_comment(comment_text)
+
+            # Count English and non-English comments
+            if language == "en":
+                english_count += 1
+            else:
+                non_english_count += 1
+
+            # Sentiment classification
             if sentiment == 0:
                 neg_count += 1
-                neg_comments.append(c[0])
+                neg_comments.append(comment_text)
             elif sentiment == 1:
                 neu_count += 1
-                neu_comments.append(c[0])
+                neu_comments.append(comment_text)
             elif sentiment == "Spam":
                 spam_count += 1
             else:
                 pos_count += 1
-                pos_comments.append(c[0])
+                pos_comments.append(comment_text)
 
-            # Update current progress
             progress_status["current"] += 1
 
-            # (Optional) Sleep briefly to simulate “long” work, so we can see progress
-            # time.sleep(0.01)
-
-        # 3) Create visualizations
+        # Generate plots
         progress_status["message"] = "Generating plots..."
         plot_data = create_sentiment_barplot(pos_count, neu_count, neg_count)
         word_freq_plot = create_word_frequency_barplots(
-            pos_comments, neu_comments, neg_comments
-        )
+            pos_comments, neu_comments, neg_comments)
         phrase_freq_plot = create_phrase_frequency_barplots(
-            pos_comments, neu_comments, neg_comments
-        )
+            pos_comments, neu_comments, neg_comments)
+        word_cloud_data = create_word_cloud([c[0] for c in all_comments])
 
-        warning_message_plot = None
-        if word_freq_plot is None or phrase_freq_plot is None:
-            warning_message_plot = (
-                "Warning: Small number of comments detected. "
-                "Word & phrase frequency plots were not generated."
-            )
-
-        # Create word cloud
-        all_comments_text = [c[0] for c in all_comments]
-        word_cloud_data = create_word_cloud(all_comments_text)
-
-        # 4) Fetch only the last 10 comments to display
+        # Fetch recent comments
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT comment_text, published_at FROM comments WHERE video_id=? "
-            "ORDER BY published_at DESC LIMIT 10;",
-            (video_id,)
-        )
+            "SELECT comment_text, published_at FROM comments WHERE video_id=? ORDER BY published_at DESC LIMIT 10;", (video_id,))
         recent_comments = cursor.fetchall()
         conn.close()
 
-        # Save final results into progress_status
+        # Store results
         progress_status["state"] = "done"
         progress_status["message"] = "Complete!"
         progress_status["results"] = {
-            "message": (
-                f"Added {num_new_comments} new comments to database!"
-                if num_new_comments > 0 else
-                "Comments already exist in the database. Analysis performed."
-            ),
+            "message": f"Added {num_new_comments} new comments to database!" if num_new_comments > 0 else "Comments already exist in the database. Analysis performed.",
             "total_comments": total_comments,
-            "warning_plot": warning_message_plot,
-            "video_id": video_id,
-            "comments": recent_comments,
+            "english_comments": english_count,
+            "non_english_comments": non_english_count,
             "positive_count": pos_count,
             "neutral_count": neu_count,
             "negative_count": neg_count,
@@ -217,11 +196,11 @@ def background_task(video_id):
             "plot_data": plot_data,
             "word_freq_plot": word_freq_plot,
             "word_cloud_data": word_cloud_data,
-            "phrase_freq_plot": phrase_freq_plot
+            "phrase_freq_plot": phrase_freq_plot,
+            "comments": recent_comments
         }
 
     except Exception as e:
-        # If something goes wrong, set error state
         progress_status["state"] = "error"
         progress_status["message"] = str(e)
 
