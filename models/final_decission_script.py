@@ -8,6 +8,8 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from transformers import DistilBertForSequenceClassification, DistilBertTokenizerFast, BertForSequenceClassification, BertTokenizer
 from concurrent.futures import ThreadPoolExecutor
 from transformers import logging
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from langdetect import detect
 import time
 
 logging.set_verbosity_error()
@@ -95,12 +97,41 @@ def predict_sentiment(text):
     with torch.no_grad():
         return F.softmax(model4(**encoding).logits, dim=1).squeeze(0).cpu().numpy()
 
+# Load Model 5: Multilingual Sentiment Analysis
+
+
+model_path = "model5/model5_phase2/"
+model5 = AutoModelForSequenceClassification.from_pretrained(model_path)
+tokenizer_model5 = AutoTokenizer.from_pretrained(model_path)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model5.to(device)
+
+
+def predict_multilingual_sentiment(text):
+    model5.eval()
+    inputs = tokenizer_model5(
+        text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    inputs = {key: val.to(device) for key, val in inputs.items()}
+
+    with torch.no_grad():
+        outputs = model5(**inputs)
+
+    logits = outputs.logits
+    predicted_class = torch.argmax(logits, dim=1).item()
+
+    return predicted_class
+
 # 🚀 Optimized Final Classification Function
 
 
 def classify_comment(text):
     if classify_spam(text) == 1:
         return "Spam"
+
+    if detect(text) != "en":
+        sentiment_class = predict_multilingual_sentiment(text)
+        return ["Negative", "Neutral", "Positive"][sentiment_class]
 
     # Run hate speech, sarcasm, and sentiment in parallel
     with ThreadPoolExecutor() as executor:
@@ -138,12 +169,32 @@ def classify_comment(text):
 
 # Example Usage
 if __name__ == "__main__":
+
     comments = [
         "Very good movie. I enjoyed it a lot.",
-        "This is a terrible product. Do not buy it!",
+        "Me encantó este libro, es maravilloso.",
+        "C'était un film incroyable, je le recommande vivement !",
+        "Das Essen war köstlich, ich komme auf jeden Fall wieder!",
+        "Che bella giornata, mi sento così felice!",
+        "素晴らしい一日でした！"
         "I think this is a spam message.",
+        "Creo que este es un mensaje de spam.",
+        "Je pense que c'est un message indésirable.",
+        "Ich glaube, das ist eine Spam-Nachricht.",
+        "Penso che questo sia un messaggio di spam.",
+        "これはスパムメッセージだと思います。"
+        "This is a terrible product. Do not buy it!",
+        "¡Este producto es terrible! ¡No lo compres!",
+        "C'est un produit terrible. Ne l'achetez pas !",
+        "Dieses Produkt ist schrecklich. Nicht kaufen!",
+        "Questo prodotto è orribile. Non comprarlo!",
+        "これはひどい商品です。買わないでください！"
         "You are an idiot!",
-        "Wow, such a great day!"
+        "¡Eres un idiota!",
+        "Tu es un idiot!",
+        "Du bist ein Idiot!",
+        "Sei un idiota!"
+        "あなたはバカです！"
     ]
 
     for comment in comments:
