@@ -14,6 +14,8 @@ import time
 
 logging.set_verbosity_error()
 
+# Check and print CUDA availability
+print(f"CUDA available: {torch.cuda.is_available()}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load Model 1: Spam Classifier (Optimized with Joblib)
@@ -23,7 +25,7 @@ vectorizer1 = joblib.load("models/model1/vectorizer_model1.pkl")
 
 def classify_spam(text):
     text_transformed = vectorizer1.transform([text])
-    return model1.predict(text_transformed)[0]  # 1 for Spam, 0 for Not Spam
+    return model1.predict(text_transformed)[0]
 
 
 # Load Model 2: Hate Speech Detection (LSTM)
@@ -54,7 +56,8 @@ class LSTMClassifier(nn.Module):
 
 model2 = LSTMClassifier(len(final_vocab), 128, 128, 3,
                         1, True, 0.5, final_vocab['<PAD>']).to(device)
-model2.load_state_dict(torch.load("models/model2/model2.pt"))
+model2.load_state_dict(torch.load(
+    "models/model2/model2.pt", map_location=device))
 model2.eval()
 
 
@@ -87,7 +90,8 @@ def predict_sarcasm(text):
 # Load Model 4: Sentiment Analysis (BERT)
 model4 = BertForSequenceClassification.from_pretrained(
     "bert-base-uncased", num_labels=3).to(device)
-model4.load_state_dict(torch.load("models/model4/model4.pth"))
+model4.load_state_dict(torch.load(
+    "models/model4/model4.pth", map_location=device))
 model4.eval()
 tokenizer4 = BertTokenizer.from_pretrained("bert-base-uncased")
 
@@ -98,14 +102,11 @@ def predict_sentiment(text):
     with torch.no_grad():
         return F.softmax(model4(**encoding).logits, dim=1).squeeze(0).cpu().numpy()
 
+
 # Load Model 5: Multilingual Sentiment Analysis
-
-
 model_path = "models/model5/"
 model5 = AutoModelForSequenceClassification.from_pretrained(model_path)
 tokenizer_model5 = AutoTokenizer.from_pretrained(model_path)
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model5.to(device)
 
 
@@ -114,13 +115,10 @@ def predict_multilingual_sentiment(text):
     inputs = tokenizer_model5(
         text, return_tensors="pt", truncation=True, padding=True, max_length=512)
     inputs = {key: val.to(device) for key, val in inputs.items()}
-
     with torch.no_grad():
         outputs = model5(**inputs)
-
     logits = outputs.logits
     predicted_class = torch.argmax(logits, dim=1).item()
-
     return predicted_class
 
 
