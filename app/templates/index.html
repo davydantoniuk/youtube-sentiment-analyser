@@ -114,7 +114,17 @@
         {% if comments %}
         <div class="card mt-4">
             <h3 style="text-align: left;">📊 Total Comments: {{ total_comments }}</h3>
+            <h5 style="text-align: left; margin-left: 20px;">🗣️ English Comments: {{ english_comments }}</h5>
+            <h5 style="text-align: left; margin-left: 20px;">🌐 Non-English Comments: {{ non_english_comments }}</h5>
         </div>
+
+        {% if non_english_comments > 2 * english_comments %}
+        <div class="alert alert-warning mt-3" role="alert"
+            style="font-size: 1.2em; font-weight: bold; color: #856404; background-color: #fff3cd; border-color: #ffeeba;">
+            ⚠️ Warning: A significantly high number of non-English comments detected! The model's predictions may be
+            less accurate due to language limitations. Upgrading the multilingual classification soon😊.
+        </div>
+        {% endif %}
 
         <div class="card mt-4">
             <h3 style="text-align: center;">📈 Sentiment Counts</h3>
