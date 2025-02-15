@@ -197,12 +197,42 @@ def background_task(video_id):
             "word_freq_plot": word_freq_plot,
             "word_cloud_data": word_cloud_data,
             "phrase_freq_plot": phrase_freq_plot,
-            "comments": recent_comments
+            "comments": recent_comments,
+            "video_id": video_id
         }
 
     except Exception as e:
         progress_status["state"] = "error"
         progress_status["message"] = str(e)
+
+
+@app.route("/show_comments/<video_id>", methods=["GET"])
+def show_comments(video_id):
+    """Render the initial comments page with pagination support."""
+    return render_template("show_comments.html", video_id=video_id)
+
+
+@app.route("/fetch_comments/<video_id>", methods=["GET"])
+def fetch_comments(video_id):
+    """Fetch paginated comments from the database."""
+    try:
+        page = int(request.args.get("page", 1))
+        limit = 50  # Load 50 comments at a time
+        offset = (page - 1) * limit
+
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT comment_text FROM comments WHERE video_id=? ORDER BY published_at DESC LIMIT ? OFFSET ?;",
+            (video_id, limit, offset)
+        )
+        comments = [row[0] for row in cursor.fetchall()]
+        conn.close()
+
+        return jsonify({"comments": comments, "has_more": len(comments) == limit})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

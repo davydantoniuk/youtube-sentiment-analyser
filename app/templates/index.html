@@ -99,10 +99,6 @@
             <button type="submit" class="btn btn-primary btn-block">🔍 Fetch Comments</button>
         </form>
 
-        <!-- 
-    If we have results, let's display them. 
-    These variables come from progress_status["results"] in app.py
-  -->
         {% if message %}
         <div class="alert alert-info mt-3 text-center">{{ message }}</div>
         {% endif %}
@@ -188,6 +184,11 @@
                 {% endfor %}
             </ul>
         </div>
+
+        <div class="text-center mt-3">
+            <a class="btn btn-secondary" href="{{ url_for('show_comments', video_id=video_id) }}">View All Comments</a>
+        </div>
+
         {% endif %}
 
     </div>
@@ -243,7 +244,7 @@
                         console.error(error);
                         clearInterval(intervalId);
                     });
-            }, 1000); // poll every 1 second
+            }, 1000);
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
