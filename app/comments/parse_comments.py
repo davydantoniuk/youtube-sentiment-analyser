@@ -5,19 +5,27 @@ import os
 import html
 import re
 
-# === Load API key from config.yml ===
+# === Load API key from environment variable or config.yml ===
 
 
-def load_config():
+def load_api_key():
+    # Check if API key is set as an environment variable
+    env_api_key = os.getenv("YOUTUBE_API_KEY")
+    if env_api_key:
+        print("Using API key from environment variable.")
+        return env_api_key
+
+    # Fallback: Load from config.yml if environment variable is not set
     config_path = os.path.abspath(os.path.join(
         os.path.dirname(__file__), "../config.yml"))
     with open(config_path, "r") as file:
         config = yaml.safe_load(file)
-    return config
+
+    print("Using API key from config.yml.")
+    return config["youtube_api_key"]
 
 
-config = load_config()
-API_KEY = config["youtube_api_key"]
+API_KEY = load_api_key()
 
 # === Database Configuration ===
 DB_FILE = os.path.abspath(os.path.join(
@@ -47,7 +55,7 @@ YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
 
 
-def fetch_comments(video_link, max_comments=1000):
+def fetch_comments(video_link, max_comments=5000):
     video_id = video_link.split("v=")[-1]
     youtube = build(YOUTUBE_API_SERVICE_NAME,
                     YOUTUBE_API_VERSION, developerKey=API_KEY)
@@ -80,8 +88,9 @@ def fetch_comments(video_link, max_comments=1000):
 
     return comments[:max_comments]
 
-
 # === Save Only New Comments to Database ===
+
+
 def save_comments_to_db(comments, db_file):
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
@@ -109,8 +118,9 @@ def save_comments_to_db(comments, db_file):
     conn.close()
     return new_comments_count
 
-
 # === Process Video Comments and Return Count of New Comments ===
+
+
 def process_video_comments(video_link, db_file):
     comments = fetch_comments(video_link)
     new_comments = save_comments_to_db(comments, db_file)
