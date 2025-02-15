@@ -89,11 +89,11 @@ def predict_sarcasm(text):
 
 # Load Model 4: Sentiment Analysis (BERT)
 model4 = BertForSequenceClassification.from_pretrained(
-    "bert-base-uncased", num_labels=3).to(device)
+    "models/model4/bert-base-uncased").to(device)
 model4.load_state_dict(torch.load(
     "models/model4/model4.pth", map_location=device))
 model4.eval()
-tokenizer4 = BertTokenizer.from_pretrained("bert-base-uncased")
+tokenizer4 = BertTokenizer.from_pretrained("models/model4/bert-base-uncased")
 
 
 def predict_sentiment(text):
