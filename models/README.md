@@ -4,10 +4,11 @@
 2. **Hate Speech Classifier** (Model 2): Predicts whether a comment is hate speech, offensive, or neither.
 3. **Sarcasm Detection Model** (Model 3): Determines if a comment is sarcastic.
 4. **Sentiment Analysis Model** (Model 4): Classifies comments as positive, neutral, or negative.
+5. **Multilingual Comments Classification Model** (Model 5): Classifies comments in multiple languages as positive, neutral, or negative. Make predictions only for comments that are not in English.
 
 ## Decision Process
 
-The final classification is computed using a weighted approach based on the predictions from all four models.
+The final classification for English comments is computed using a weighted approach based on the predictions from models 1-4.
 
 ### Step 1: Spam Filtering
 
