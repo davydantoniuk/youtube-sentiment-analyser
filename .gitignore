@@ -1,0 +1,16 @@
+models/model3/model3/*
+models/model3/model3_tokenizer/*
+models/model4/*
+models/model5/*
+models/model5/model5_phase2/*
+
+data/Sarcastic_Comments_REDDIT/*
+data/Multiilingual_dataset/*
+
+app/models/*
+!app/models/classify_comments.py
+
+config.yml
+comments.db
+.gitattributes
+**/__pycache__/
